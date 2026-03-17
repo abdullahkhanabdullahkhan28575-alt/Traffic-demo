@@ -1,0 +1,1010 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Traffic Light Simulation</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&display=swap');
+
+  :root {
+    --bg: #0a0e1a;
+    --panel: #111827;
+    --border: #1e293b;
+    --accent: #00d4ff;
+    --red: #ff2d2d;
+    --yellow: #ffd700;
+    --green: #00e676;
+    --red-dim: #3a0a0a;
+    --yellow-dim: #3a3000;
+    --green-dim: #003a1a;
+    --text: #e2e8f0;
+    --muted: #64748b;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    font-family: 'Share Tech Mono', monospace;
+    color: var(--text);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 20px;
+    background-image:
+      radial-gradient(ellipse at 20% 50%, rgba(0,212,255,0.04) 0%, transparent 60%),
+      radial-gradient(ellipse at 80% 20%, rgba(0,230,118,0.04) 0%, transparent 60%),
+      repeating-linear-gradient(0deg, transparent, transparent 40px, rgba(255,255,255,0.01) 40px, rgba(255,255,255,0.01) 41px),
+      repeating-linear-gradient(90deg, transparent, transparent 40px, rgba(255,255,255,0.01) 40px, rgba(255,255,255,0.01) 41px);
+  }
+
+  header {
+    text-align: center;
+    margin-bottom: 30px;
+  }
+
+  header h1 {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 1.8rem;
+    font-weight: 900;
+    letter-spacing: 4px;
+    color: var(--accent);
+    text-shadow: 0 0 20px rgba(0,212,255,0.5);
+    text-transform: uppercase;
+  }
+
+  header p {
+    color: var(--muted);
+    font-size: 0.75rem;
+    letter-spacing: 3px;
+    margin-top: 6px;
+  }
+
+  .main-layout {
+    display: grid;
+    grid-template-columns: 260px 1fr 260px;
+    gap: 20px;
+    width: 100%;
+    max-width: 1000px;
+    align-items: start;
+  }
+
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+  }
+
+  .panel-title {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 0.65rem;
+    letter-spacing: 3px;
+    color: var(--accent);
+    text-transform: uppercase;
+    margin-bottom: 16px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  /* ── Intersection Scene ── */
+  .scene-panel {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+  }
+
+  .intersection-wrapper {
+    position: relative;
+    width: 360px;
+    height: 360px;
+  }
+
+  /* Road */
+  .road-h, .road-v {
+    position: absolute;
+    background: #1a1a2e;
+    border: 1px solid #2a2a4a;
+  }
+  .road-h { left: 0; right: 0; top: 50%; transform: translateY(-50%); height: 90px; }
+  .road-v { top: 0; bottom: 0; left: 50%; transform: translateX(-50%); width: 90px; }
+
+  /* Lane markings */
+  .lane-mark {
+    position: absolute;
+    background: rgba(255,255,255,0.15);
+  }
+  .lane-mark.h { height: 3px; width: 40px; top: 50%; transform: translateY(-50%); }
+  .lane-mark.v { width: 3px; height: 40px; left: 50%; transform: translateX(-50%); }
+
+  /* Crosswalk stripes */
+  .crosswalk {
+    position: absolute;
+    display: flex;
+    gap: 4px;
+  }
+  .crosswalk.top { bottom: calc(50% + 45px); left: 50%; transform: translateX(-50%); flex-direction: column; }
+  .crosswalk.bottom { top: calc(50% + 45px); left: 50%; transform: translateX(-50%); flex-direction: column; }
+  .crosswalk.left { right: calc(50% + 45px); top: 50%; transform: translateY(-50%); flex-direction: row; }
+  .crosswalk.right { left: calc(50% + 45px); top: 50%; transform: translateY(-50%); flex-direction: row; }
+
+  .stripe-h { width: 90px; height: 6px; background: rgba(255,255,255,0.12); }
+  .stripe-v { height: 90px; width: 6px; background: rgba(255,255,255,0.12); }
+
+  /* Ground */
+  .ground {
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    background: #12151f;
+    border-radius: 8px;
+  }
+
+  /* Traffic Lights on poles */
+  .tl-pole {
+    position: absolute;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .pole-stick {
+    width: 4px;
+    height: 30px;
+    background: linear-gradient(to bottom, #444, #222);
+    border-radius: 2px;
+  }
+
+  .tl-box {
+    width: 36px;
+    background: #1a1a1a;
+    border: 2px solid #333;
+    border-radius: 6px;
+    padding: 5px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    align-items: center;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.6);
+  }
+
+  .bulb {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    border: 1.5px solid rgba(0,0,0,0.4);
+    transition: box-shadow 0.3s ease, background 0.3s ease;
+  }
+
+  .bulb.red-off   { background: var(--red-dim); }
+  .bulb.yellow-off{ background: var(--yellow-dim); }
+  .bulb.green-off { background: var(--green-dim); }
+
+  .bulb.red-on    { background: var(--red);    box-shadow: 0 0 10px 4px rgba(255,45,45,0.7),  0 0 20px 6px rgba(255,45,45,0.3); }
+  .bulb.yellow-on { background: var(--yellow); box-shadow: 0 0 10px 4px rgba(255,215,0,0.7),  0 0 20px 6px rgba(255,215,0,0.3); }
+  .bulb.green-on  { background: var(--green);  box-shadow: 0 0 10px 4px rgba(0,230,118,0.7),  0 0 20px 6px rgba(0,230,118,0.3); }
+
+  /* Position lights around intersection */
+  .tl-north { top: 8px; left: 50%; transform: translateX(15px); flex-direction: column; }
+  .tl-south { bottom: 8px; left: 50%; transform: translateX(-55px); flex-direction: column-reverse; }
+  .tl-east  { right: 8px; top: 50%; transform: translateY(15px); flex-direction: column; }
+  .tl-west  { left: 8px; top: 50%; transform: translateY(-55px); flex-direction: column; }
+
+  /* Direction label */
+  .dir-label {
+    font-size: 0.55rem;
+    letter-spacing: 1px;
+    color: var(--muted);
+    margin-top: 2px;
+  }
+
+  /* Vehicles */
+  .vehicle {
+    position: absolute;
+    width: 28px;
+    height: 16px;
+    border-radius: 4px;
+    transition: transform 0.5s linear, opacity 0.3s;
+  }
+
+  /* ── Controls ── */
+  .control-row {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .btn {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.75rem;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    padding: 10px 14px;
+    border-radius: 6px;
+    border: 1px solid;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+
+  .btn-primary {
+    background: rgba(0,212,255,0.1);
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+  .btn-primary:hover { background: rgba(0,212,255,0.2); box-shadow: 0 0 12px rgba(0,212,255,0.3); }
+
+  .btn-danger {
+    background: rgba(255,45,45,0.1);
+    border-color: var(--red);
+    color: var(--red);
+  }
+  .btn-danger:hover { background: rgba(255,45,45,0.2); }
+
+  .btn-warning {
+    background: rgba(255,215,0,0.1);
+    border-color: var(--yellow);
+    color: var(--yellow);
+  }
+  .btn-warning:hover { background: rgba(255,215,0,0.2); }
+
+  .btn-success {
+    background: rgba(0,230,118,0.1);
+    border-color: var(--green);
+    color: var(--green);
+  }
+  .btn-success:hover { background: rgba(0,230,118,0.2); }
+
+  /* Speed slider */
+  .slider-group { margin-top: 6px; }
+  .slider-label {
+    font-size: 0.7rem;
+    color: var(--muted);
+    letter-spacing: 1px;
+    margin-bottom: 6px;
+    display: flex;
+    justify-content: space-between;
+  }
+
+  input[type=range] {
+    width: 100%;
+    -webkit-appearance: none;
+    height: 4px;
+    border-radius: 2px;
+    background: var(--border);
+    outline: none;
+  }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 14px; height: 14px;
+    border-radius: 50%;
+    background: var(--accent);
+    cursor: pointer;
+    box-shadow: 0 0 6px rgba(0,212,255,0.5);
+  }
+
+  /* ── Status / Log Panel ── */
+  .status-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+
+  .status-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.72rem;
+  }
+
+  .status-key { color: var(--muted); letter-spacing: 1px; }
+  .status-val { font-family: 'Orbitron', sans-serif; font-size: 0.8rem; }
+  .status-val.red    { color: var(--red); }
+  .status-val.yellow { color: var(--yellow); }
+  .status-val.green  { color: var(--green); }
+  .status-val.accent { color: var(--accent); }
+
+  /* Timer ring */
+  .timer-ring-wrap {
+    display: flex;
+    justify-content: center;
+    margin: 10px 0 16px;
+  }
+
+  .timer-ring {
+    position: relative;
+    width: 80px;
+    height: 80px;
+  }
+
+  .timer-ring svg { transform: rotate(-90deg); }
+
+  .timer-ring-text {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .timer-num {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 1.4rem;
+    font-weight: 700;
+  }
+
+  .timer-sub {
+    font-size: 0.55rem;
+    letter-spacing: 2px;
+    color: var(--muted);
+  }
+
+  /* Log */
+  .log-box {
+    background: rgba(0,0,0,0.4);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 10px;
+    height: 130px;
+    overflow-y: auto;
+    font-size: 0.65rem;
+    line-height: 1.8;
+  }
+
+  .log-box::-webkit-scrollbar { width: 4px; }
+  .log-box::-webkit-scrollbar-track { background: transparent; }
+  .log-box::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  .log-entry { color: var(--muted); }
+  .log-entry span { margin-right: 6px; }
+  .log-entry.red span    { color: var(--red); }
+  .log-entry.yellow span { color: var(--yellow); }
+  .log-entry.green span  { color: var(--green); }
+  .log-entry.info span   { color: var(--accent); }
+
+  /* Sequence viz */
+  .sequence-row {
+    display: flex;
+    gap: 6px;
+    margin-top: 8px;
+    justify-content: center;
+  }
+
+  .seq-dot {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    opacity: 0.25;
+    transition: opacity 0.3s, box-shadow 0.3s;
+  }
+  .seq-dot.active { opacity: 1; }
+  .seq-dot.r { background: var(--red); }
+  .seq-dot.r.active { box-shadow: 0 0 6px var(--red); }
+  .seq-dot.y { background: var(--yellow); }
+  .seq-dot.y.active { box-shadow: 0 0 6px var(--yellow); }
+  .seq-dot.g { background: var(--green); }
+  .seq-dot.g.active { box-shadow: 0 0 6px var(--green); }
+
+  /* Mode badges */
+  .mode-badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 20px;
+    font-size: 0.65rem;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    border: 1px solid;
+  }
+  .mode-badge.auto   { border-color: var(--accent); color: var(--accent); background: rgba(0,212,255,0.08); }
+  .mode-badge.manual { border-color: var(--yellow); color: var(--yellow); background: rgba(255,215,0,0.08); }
+  .mode-badge.stopped{ border-color: var(--muted); color: var(--muted); background: transparent; }
+
+  /* Stats row */
+  .stats-mini {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-top: 8px;
+  }
+
+  .stat-box {
+    background: rgba(0,0,0,0.3);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 8px;
+    text-align: center;
+  }
+
+  .stat-num {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 1.1rem;
+    color: var(--accent);
+  }
+
+  .stat-lbl {
+    font-size: 0.6rem;
+    color: var(--muted);
+    letter-spacing: 1px;
+    margin-top: 2px;
+  }
+
+  @media (max-width: 900px) {
+    .main-layout { grid-template-columns: 1fr; }
+    .intersection-wrapper { width: 300px; height: 300px; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Traffic Light Simulation</h1>
+  <p>Intersection Control System v2.0</p>
+</header>
+
+<div class="main-layout">
+
+  <!-- LEFT: Controls -->
+  <div class="panel">
+    <div class="panel-title">Control Panel</div>
+
+    <div style="margin-bottom:12px; display:flex; justify-content:space-between; align-items:center;">
+      <span style="font-size:0.7rem; color:var(--muted)">MODE:</span>
+      <span class="mode-badge stopped" id="modeBadge">STOPPED</span>
+    </div>
+
+    <div class="control-row">
+      <button class="btn btn-primary" onclick="startAuto()">▶ AUTO MODE</button>
+      <button class="btn btn-warning" onclick="toggleManual()">⚙ MANUAL MODE</button>
+      <button class="btn btn-danger" onclick="stopSim()">■ STOP</button>
+    </div>
+
+    <div id="manualControls" style="display:none; margin-top:14px; padding-top:14px; border-top:1px solid var(--border);">
+      <div style="font-size:0.65rem; color:var(--muted); letter-spacing:2px; margin-bottom:10px;">MANUAL OVERRIDE</div>
+      <div class="control-row">
+        <button class="btn btn-danger"  onclick="setManualState('red')">🔴 SET RED</button>
+        <button class="btn btn-warning" onclick="setManualState('yellow')">🟡 SET YELLOW</button>
+        <button class="btn btn-success" onclick="setManualState('green')">🟢 SET GREEN</button>
+      </div>
+    </div>
+
+    <div style="margin-top:16px; padding-top:14px; border-top:1px solid var(--border);">
+      <div class="slider-group">
+        <div class="slider-label">
+          <span>CYCLE SPEED</span>
+          <span id="speedLabel" style="color:var(--accent)">1.0x</span>
+        </div>
+        <input type="range" min="5" max="30" value="10" id="speedSlider" oninput="updateSpeed(this.value)">
+      </div>
+
+      <div class="slider-group" style="margin-top:12px;">
+        <div class="slider-label">
+          <span>RED DURATION</span>
+          <span id="redDurLabel" style="color:var(--red)">5s</span>
+        </div>
+        <input type="range" min="2" max="15" value="5" id="redDur" oninput="updateDuration('red', this.value)">
+      </div>
+
+      <div class="slider-group" style="margin-top:12px;">
+        <div class="slider-label">
+          <span>GREEN DURATION</span>
+          <span id="greenDurLabel" style="color:var(--green)">5s</span>
+        </div>
+        <input type="range" min="2" max="15" value="5" id="greenDur" oninput="updateDuration('green', this.value)">
+      </div>
+    </div>
+
+    <div style="margin-top:16px; padding-top:14px; border-top:1px solid var(--border);">
+      <div style="font-size:0.65rem; color:var(--muted); letter-spacing:2px; margin-bottom:10px;">INTERSECTION MODE</div>
+      <div style="display:flex; gap:8px; flex-wrap:wrap;">
+        <button class="btn btn-primary" style="padding:6px 10px; font-size:0.65rem;" onclick="setIntersectionMode('standard')">STD</button>
+        <button class="btn btn-primary" style="padding:6px 10px; font-size:0.65rem;" onclick="setIntersectionMode('offset')">OFFSET</button>
+        <button class="btn btn-primary" style="padding:6px 10px; font-size:0.65rem;" onclick="setIntersectionMode('sync')">SYNC</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- CENTER: Intersection Scene -->
+  <div class="panel scene-panel">
+    <div class="panel-title" style="text-align:center; width:100%">Live Intersection View</div>
+
+    <div class="intersection-wrapper" id="intersection">
+      <div class="ground"></div>
+      <div class="road-h"></div>
+      <div class="road-v"></div>
+
+      <!-- Crosswalks -->
+      <div class="crosswalk top" id="cwTop"></div>
+      <div class="crosswalk bottom" id="cwBottom"></div>
+      <div class="crosswalk left" id="cwLeft"></div>
+      <div class="crosswalk right" id="cwRight"></div>
+
+      <!-- North Light (NS direction) -->
+      <div class="tl-pole tl-north" id="tlNorth">
+        <div class="tl-box" id="boxNS">
+          <div class="bulb red-off"    id="ns-red"></div>
+          <div class="bulb yellow-off" id="ns-yellow"></div>
+          <div class="bulb green-off"  id="ns-green"></div>
+        </div>
+        <div class="pole-stick"></div>
+        <div class="dir-label">N/S</div>
+      </div>
+
+      <!-- South Light -->
+      <div class="tl-pole tl-south" id="tlSouth">
+        <div class="dir-label">S</div>
+        <div class="pole-stick"></div>
+        <div class="tl-box" id="boxS">
+          <div class="bulb red-off"    id="s-red"></div>
+          <div class="bulb yellow-off" id="s-yellow"></div>
+          <div class="bulb green-off"  id="s-green"></div>
+        </div>
+      </div>
+
+      <!-- East Light (EW direction) -->
+      <div class="tl-pole tl-east" id="tlEast">
+        <div class="tl-box" id="boxEW">
+          <div class="bulb red-off"    id="ew-red"></div>
+          <div class="bulb yellow-off" id="ew-yellow"></div>
+          <div class="bulb green-off"  id="ew-green"></div>
+        </div>
+        <div class="pole-stick"></div>
+        <div class="dir-label">E/W</div>
+      </div>
+
+      <!-- West Light -->
+      <div class="tl-pole tl-west" id="tlWest">
+        <div class="dir-label">W</div>
+        <div class="pole-stick"></div>
+        <div class="tl-box" id="boxW">
+          <div class="bulb red-off"    id="w-red"></div>
+          <div class="bulb yellow-off" id="w-yellow"></div>
+          <div class="bulb green-off"  id="w-green"></div>
+        </div>
+      </div>
+
+      <!-- Vehicles container -->
+      <div id="vehicles"></div>
+    </div>
+
+    <!-- Sequence dots -->
+    <div>
+      <div style="font-size:0.65rem; color:var(--muted); letter-spacing:2px; text-align:center; margin-bottom:6px;">CYCLE SEQUENCE</div>
+      <div class="sequence-row">
+        <div class="seq-dot r" id="seq0" title="Red"></div>
+        <div class="seq-dot y" id="seq1" title="Yellow (transition)"></div>
+        <div class="seq-dot g" id="seq2" title="Green"></div>
+        <div class="seq-dot y" id="seq3" title="Yellow (warning)"></div>
+      </div>
+    </div>
+
+    <!-- Stats mini -->
+    <div class="stats-mini" style="width:100%">
+      <div class="stat-box">
+        <div class="stat-num" id="cycleCount">0</div>
+        <div class="stat-lbl">CYCLES</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-num" id="vehicleCount">0</div>
+        <div class="stat-lbl">VEHICLES</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-num" id="stopCount">0</div>
+        <div class="stat-lbl">STOPS</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-num" id="uptime">00:00</div>
+        <div class="stat-lbl">UPTIME</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- RIGHT: Status + Log -->
+  <div class="panel">
+    <div class="panel-title">System Status</div>
+
+    <!-- Timer ring -->
+    <div class="timer-ring-wrap">
+      <div class="timer-ring">
+        <svg width="80" height="80" viewBox="0 0 80 80">
+          <circle cx="40" cy="40" r="32" fill="none" stroke="var(--border)" stroke-width="6"/>
+          <circle cx="40" cy="40" r="32" fill="none" stroke-width="6"
+            stroke-linecap="round"
+            id="timerArc"
+            stroke="var(--accent)"
+            stroke-dasharray="201"
+            stroke-dashoffset="0"/>
+        </svg>
+        <div class="timer-ring-text">
+          <div class="timer-num" id="timerNum">--</div>
+          <div class="timer-sub">SEC</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="status-grid">
+      <div class="status-item">
+        <span class="status-key">N/S LIGHT</span>
+        <span class="status-val" id="nsState">—</span>
+      </div>
+      <div class="status-item">
+        <span class="status-key">E/W LIGHT</span>
+        <span class="status-val" id="ewState">—</span>
+      </div>
+      <div class="status-item">
+        <span class="status-key">PHASE</span>
+        <span class="status-val accent" id="phaseState">—</span>
+      </div>
+      <div class="status-item">
+        <span class="status-key">INT. MODE</span>
+        <span class="status-val accent" id="intModeLabel">STANDARD</span>
+      </div>
+    </div>
+
+    <div style="border-top:1px solid var(--border); padding-top:14px; margin-top:4px;">
+      <div class="panel-title">Event Log</div>
+      <div class="log-box" id="logBox"></div>
+    </div>
+
+    <!-- Legend -->
+    <div style="margin-top:14px; padding-top:14px; border-top:1px solid var(--border);">
+      <div style="font-size:0.65rem; color:var(--muted); letter-spacing:2px; margin-bottom:8px;">LEGEND</div>
+      <div style="font-size:0.7rem; line-height:2; color:var(--muted);">
+        <div>🔴 <span style="color:var(--red)">RED</span> — All traffic stopped</div>
+        <div>🟡 <span style="color:var(--yellow)">YELLOW</span> — Transition / caution</div>
+        <div>🟢 <span style="color:var(--green)">GREEN</span> — Traffic flowing</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ── Build crosswalk stripes ──────────────────────────────────────────────
+function buildCrosswalks() {
+  const cwTop = document.getElementById('cwTop');
+  const cwBottom = document.getElementById('cwBottom');
+  const cwLeft = document.getElementById('cwLeft');
+  const cwRight = document.getElementById('cwRight');
+  for (let i = 0; i < 6; i++) {
+    cwTop.innerHTML += '<div class="stripe-h"></div>';
+    cwBottom.innerHTML += '<div class="stripe-h"></div>';
+    cwLeft.innerHTML += '<div class="stripe-v"></div>';
+    cwRight.innerHTML += '<div class="stripe-v"></div>';
+  }
+}
+buildCrosswalks();
+
+// ── State ────────────────────────────────────────────────────────────────
+const STATES = ['red', 'yellow-to-green', 'green', 'yellow-to-red'];
+const YELLOW_DUR = 2; // seconds
+let durations = { red: 5, green: 5 };
+let speedMult = 1.0;
+let running = false;
+let manual = false;
+let currentPhase = 0; // 0=NS-red/EW-green, 1=NS-red/EW-yellow, 2=NS-green/EW-red, 3=NS-yellow/EW-red
+let timer = 0;
+let maxTimer = 5;
+let cycleCount = 0;
+let vehicleCount = 0;
+let stopCount = 0;
+let uptimeSeconds = 0;
+let intersectionMode = 'standard';
+let intervalId = null;
+let uptimeId = null;
+let vehicleId = 0;
+const vehicles = [];
+
+// ── Light state setter ───────────────────────────────────────────────────
+function setLight(prefix, state) {
+  const r = document.getElementById(prefix + '-red');
+  const y = document.getElementById(prefix + '-yellow');
+  const g = document.getElementById(prefix + '-green');
+  r.className = 'bulb ' + (state === 'red'    ? 'red-on'    : 'red-off');
+  y.className = 'bulb ' + (state === 'yellow' ? 'yellow-on' : 'yellow-off');
+  g.className = 'bulb ' + (state === 'green'  ? 'green-on'  : 'green-off');
+}
+
+function applyPhase(phase) {
+  // phase 0: NS=red,  EW=green
+  // phase 1: NS=red,  EW=yellow
+  // phase 2: NS=green, EW=red
+  // phase 3: NS=yellow, EW=red
+  const nsMap = ['red','red','green','yellow'];
+  const ewMap = ['green','yellow','red','red'];
+  const ns = nsMap[phase], ew = ewMap[phase];
+
+  setLight('ns', ns); setLight('s', ns);
+  setLight('ew', ew); setLight('w', ew);
+
+  const nsEl = document.getElementById('nsState');
+  const ewEl = document.getElementById('ewState');
+  nsEl.textContent = ns.toUpperCase();
+  nsEl.className = 'status-val ' + ns;
+  ewEl.textContent = ew.toUpperCase();
+  ewEl.className = 'status-val ' + ew;
+
+  const phaseNames = ['EW FLOWING','EW CLEARING','NS FLOWING','NS CLEARING'];
+  document.getElementById('phaseState').textContent = phaseNames[phase];
+
+  // sequence dots
+  const seqMap = [0, 1, 2, 3]; // maps to sequence dots
+  for (let i = 0; i < 4; i++) {
+    document.getElementById('seq' + i).classList.toggle('active', i === phase);
+  }
+
+  // log
+  if (phase === 0 || phase === 2) {
+    const dir = phase === 0 ? 'E/W' : 'N/S';
+    const opp = phase === 0 ? 'N/S' : 'E/W';
+    log(ns === 'green' ? 'green' : 'red', `${dir} GREEN — ${opp} RED`);
+    if (ns === 'red' || ew === 'red') stopCount++;
+    document.getElementById('stopCount').textContent = stopCount;
+  }
+
+  // vehicles react
+  vehicles.forEach(v => {
+    const moving = (v.dir === 'NS' && ns === 'green') || (v.dir === 'EW' && ew === 'green');
+    v.moving = moving;
+  });
+}
+
+// ── Timer ring ───────────────────────────────────────────────────────────
+function updateTimerRing(remaining, total) {
+  const circumference = 201;
+  const offset = circumference - (remaining / total) * circumference;
+  const arc = document.getElementById('timerArc');
+  arc.setAttribute('stroke-dashoffset', offset);
+
+  const phase = currentPhase;
+  const colors = ['#ff2d2d','#ffd700','#00e676','#ffd700'];
+  arc.setAttribute('stroke', colors[phase]);
+
+  document.getElementById('timerNum').textContent = Math.ceil(remaining);
+}
+
+// ── Main tick ────────────────────────────────────────────────────────────
+function tick() {
+  if (!running || manual) return;
+  timer -= (0.1 * speedMult);
+
+  updateTimerRing(Math.max(0, timer), maxTimer);
+
+  if (timer <= 0) {
+    // Advance phase
+    currentPhase = (currentPhase + 1) % 4;
+
+    if (intersectionMode === 'offset') {
+      // offset: phases 0,1,2,3 but shifted
+      currentPhase = (currentPhase + 1) % 4;
+    }
+
+    applyPhase(currentPhase);
+
+    const yellowPhases = [1, 3];
+    if (yellowPhases.includes(currentPhase)) {
+      maxTimer = YELLOW_DUR;
+    } else if (currentPhase === 2) {
+      maxTimer = durations.green;
+      cycleCount++;
+      document.getElementById('cycleCount').textContent = cycleCount;
+    } else {
+      maxTimer = durations.red;
+    }
+    timer = maxTimer;
+  }
+
+  moveVehicles();
+}
+
+// ── Vehicles ─────────────────────────────────────────────────────────────
+const COLORS = ['#e74c3c','#3498db','#2ecc71','#f39c12','#9b59b6','#1abc9c','#e67e22','#ecf0f1'];
+
+function spawnVehicle() {
+  if (!running) return;
+  const dir = Math.random() < 0.5 ? 'NS' : 'EW';
+  const id = ++vehicleId;
+  const color = COLORS[Math.floor(Math.random() * COLORS.length)];
+  const el = document.createElement('div');
+  el.className = 'vehicle';
+  el.id = 'v' + id;
+  el.style.background = color;
+  el.style.border = '1.5px solid rgba(255,255,255,0.2)';
+  el.style.borderRadius = dir === 'NS' ? '3px 3px 3px 3px' : '3px 3px 3px 3px';
+  el.style.position = 'absolute';
+  el.style.zIndex = '10';
+  el.style.boxShadow = `0 2px 8px ${color}66`;
+  el.style.transition = 'transform 0.5s linear';
+
+  const offset = intersectionMode === 'sync'
+    ? 135 + (Math.random() - 0.5) * 30
+    : 135 + (Math.random() - 0.5) * 40;
+
+  let x, y, w, h;
+  if (dir === 'NS') {
+    w = 14; h = 22;
+    x = offset;
+    y = -22;
+  } else {
+    w = 22; h = 14;
+    x = -22;
+    y = offset;
+  }
+  el.style.width = w + 'px';
+  el.style.height = h + 'px';
+
+  const v = { id, dir, el, x, y, moving: false, done: false };
+  const nsPhases = [1, 2, 3]; // yellow-to-green, green, yellow-to-red
+  if (dir === 'NS') v.moving = [2, 3].includes(currentPhase) && currentPhase !== 0;
+  else v.moving = [0, 1].includes(currentPhase);
+
+  el.style.left = x + 'px';
+  el.style.top  = y + 'px';
+  document.getElementById('vehicles').appendChild(el);
+  vehicles.push(v);
+
+  vehicleCount++;
+  document.getElementById('vehicleCount').textContent = vehicleCount;
+}
+
+function moveVehicles() {
+  const size = 360;
+  for (let i = vehicles.length - 1; i >= 0; i--) {
+    const v = vehicles[i];
+    if (v.moving) {
+      const speed = 1.5 * speedMult;
+      if (v.dir === 'NS') v.y += speed;
+      else v.x += speed;
+    }
+    v.el.style.left = v.x + 'px';
+    v.el.style.top  = v.y + 'px';
+
+    // Remove if off screen
+    if (v.x > size + 30 || v.y > size + 30) {
+      v.el.remove();
+      vehicles.splice(i, 1);
+    }
+  }
+}
+
+// Spawn vehicles periodically
+let spawnId = null;
+function startSpawning() {
+  if (spawnId) clearInterval(spawnId);
+  spawnId = setInterval(() => {
+    if (running) spawnVehicle();
+  }, 2000 / speedMult);
+}
+
+// ── Uptime ───────────────────────────────────────────────────────────────
+function startUptime() {
+  if (uptimeId) clearInterval(uptimeId);
+  uptimeId = setInterval(() => {
+    if (!running) return;
+    uptimeSeconds++;
+    const m = String(Math.floor(uptimeSeconds / 60)).padStart(2, '0');
+    const s = String(uptimeSeconds % 60).padStart(2, '0');
+    document.getElementById('uptime').textContent = `${m}:${s}`;
+  }, 1000);
+}
+
+// ── Log ──────────────────────────────────────────────────────────────────
+function log(type, msg) {
+  const box = document.getElementById('logBox');
+  const now = new Date();
+  const ts = now.toTimeString().slice(0, 8);
+  const el = document.createElement('div');
+  el.className = 'log-entry ' + type;
+  const icons = { red:'🔴', yellow:'🟡', green:'🟢', info:'ℹ️' };
+  el.innerHTML = `<span>${icons[type] || '•'} [${ts}]</span>${msg}`;
+  box.insertBefore(el, box.firstChild);
+  if (box.children.length > 50) box.removeChild(box.lastChild);
+}
+
+// ── Controls ─────────────────────────────────────────────────────────────
+function startAuto() {
+  if (intervalId) clearInterval(intervalId);
+  running = true;
+  manual = false;
+  currentPhase = 0;
+  maxTimer = durations.red;
+  timer = maxTimer;
+  document.getElementById('modeBadge').textContent = 'AUTO';
+  document.getElementById('modeBadge').className = 'mode-badge auto';
+  document.getElementById('manualControls').style.display = 'none';
+  applyPhase(currentPhase);
+  log('info', 'Auto mode started');
+  intervalId = setInterval(tick, 100);
+  startSpawning();
+  startUptime();
+}
+
+function stopSim() {
+  running = false;
+  manual = false;
+  if (intervalId) clearInterval(intervalId);
+  if (spawnId) clearInterval(spawnId);
+  document.getElementById('modeBadge').textContent = 'STOPPED';
+  document.getElementById('modeBadge').className = 'mode-badge stopped';
+  setLight('ns', 'off'); setLight('s', 'off');
+  setLight('ew', 'off'); setLight('w', 'off');
+  document.getElementById('nsState').textContent = '—';
+  document.getElementById('ewState').textContent = '—';
+  document.getElementById('timerNum').textContent = '--';
+  document.getElementById('timerArc').setAttribute('stroke-dashoffset', 0);
+  vehicles.forEach(v => v.el.remove());
+  vehicles.length = 0;
+  log('info', 'Simulation stopped');
+}
+
+function toggleManual() {
+  if (!running) {
+    running = true;
+    startUptime();
+  }
+  manual = true;
+  if (intervalId) clearInterval(intervalId);
+  if (spawnId) clearInterval(spawnId);
+  document.getElementById('modeBadge').textContent = 'MANUAL';
+  document.getElementById('modeBadge').className = 'mode-badge manual';
+  document.getElementById('manualControls').style.display = 'block';
+  log('info', 'Manual override active');
+}
+
+function setManualState(state) {
+  if (state === 'red') {
+    setLight('ns', 'red'); setLight('s', 'red');
+    setLight('ew', 'red'); setLight('w', 'red');
+    document.getElementById('nsState').textContent = 'RED';
+    document.getElementById('nsState').className = 'status-val red';
+    document.getElementById('ewState').textContent = 'RED';
+    document.getElementById('ewState').className = 'status-val red';
+    log('red', 'Manual: All RED');
+  } else if (state === 'yellow') {
+    setLight('ns', 'yellow'); setLight('s', 'yellow');
+    setLight('ew', 'yellow'); setLight('w', 'yellow');
+    document.getElementById('nsState').textContent = 'YELLOW';
+    document.getElementById('nsState').className = 'status-val yellow';
+    document.getElementById('ewState').textContent = 'YELLOW';
+    document.getElementById('ewState').className = 'status-val yellow';
+    log('yellow', 'Manual: All YELLOW');
+  } else {
+    setLight('ns', 'green'); setLight('s', 'green');
+    setLight('ew', 'green'); setLight('w', 'green');
+    document.getElementById('nsState').textContent = 'GREEN';
+    document.getElementById('nsState').className = 'status-val green';
+    document.getElementById('ewState').textContent = 'GREEN';
+    document.getElementById('ewState').className = 'status-val green';
+    log('green', 'Manual: All GREEN (Warning!)');
+  }
+  document.getElementById('timerNum').textContent = '∞';
+}
+
+function updateSpeed(val) {
+  speedMult = val / 10;
+  document.getElementById('speedLabel').textContent = speedMult.toFixed(1) + 'x';
+  if (running && !manual) {
+    startSpawning();
+  }
+}
+
+function updateDuration(type, val) {
+  durations[type] = parseInt(val);
+  document.getElementById(type + 'DurLabel').textContent = val + 's';
+}
+
+function setIntersectionMode(mode) {
+  intersectionMode = mode;
+  const labels = { standard: 'STANDARD', offset: 'OFFSET', sync: 'SYNC' };
+  document.getElementById('intModeLabel').textContent = labels[mode];
+  log('info', `Intersection mode: ${labels[mode]}`);
+}
+
+// ── Init ─────────────────────────────────────────────────────────────────
+log('info', 'System initialized. Press AUTO MODE to begin.');
+</script>
+</body>
+</html
